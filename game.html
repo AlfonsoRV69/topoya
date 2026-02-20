@@ -1,91 +1,251 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Racing Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pro Racing - Ultra Details</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; overflow: hidden; }
-        canvas { background: #eee; display: block; margin: auto; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            margin: 0; padding: 0; overflow: hidden; 
+            background-color: #050505; 
+            display: flex; flex-direction: column; 
+            align-items: center; justify-content: space-between;
+            height: 100vh;
+            user-select: none; -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        #game-container { 
+            width: 100%; max-width: 400px; 
+            flex-grow: 1; display: flex; align-items: center; 
+        }
+
+        canvas { 
+            background: #111; border: 2px solid #333; 
+            border-radius: 8px; width: 100%; height: auto;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        
+        #hud-bottom {
+            width: 100%; max-width: 400px; background: #000; color: white;
+            display: flex; justify-content: space-around; 
+            padding: 15px 0; border-top: 3px solid #e74c3c;
+        }
+        .stat-box { text-align: center; }
+        .stat-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-value { font-size: 22px; font-weight: bold; color: #fff; font-family: 'Courier New', monospace; }
+
+        #controls {
+            width: 100%; max-width: 400px; 
+            display: flex; justify-content: space-between;
+            padding: 20px 30px; box-sizing: border-box; 
+            background: #000; padding-bottom: 30px;
+        }
+        .btn {
+            width: 85px; height: 85px; 
+            background: linear-gradient(145deg, #222, #111);
+            border: 2px solid #444;
+            color: white; border-radius: 50%; font-size: 35px;
+            display: flex; justify-content: center; align-items: center; 
+            cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .btn:active { 
+            background: #e74c3c; border-color: #fff; 
+            transform: scale(0.9) translateY(2px); 
+        }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="550"></canvas>
+    </div>
+
+    <div id="hud-bottom">
+        <div class="stat-box">
+            <div class="stat-label">PUNTOS</div>
+            <div id="val-score" class="stat-value">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">VELOCIDAD</div>
+            <div id="val-speed" class="stat-value">80 KM/H</div>
+        </div>
+    </div>
+
+    <div id="controls">
+        <div id="btn-left" class="btn">◀</div>
+        <div id="btn-right" class="btn">▶</div>
+    </div>
+
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const carWidth = 50; 
-        let carX = canvas.width / 2 - carWidth / 2;
-        let carY = canvas.height - 100;
-        let obstacles = [];
+        const scoreEl = document.getElementById('val-score');
+        const speedEl = document.getElementById('val-speed');
+
+        // Configuración Física
+        const carW = 46; const carH = 88;
+        let carX = canvas.width / 2 - carW / 2;
+        let carY = canvas.height - 120;
+        let carVelX = 0;
+        
+        let traffic = [];
         let score = 0;
-        let gameInterval;
+        let speedKmh = 80;
+        let isGameOver = false;
         let keys = {};
+        let worldOffset = 0;
+        const lanes = [65, 175, 285];
 
-        // Initialize game
-        function init() {
-            document.addEventListener('keydown', (e) => keys[e.key] = true);
-            document.addEventListener('keyup', (e) => keys[e.key] = false);
-            canvas.addEventListener('touchstart', touchControl);
-            canvas.addEventListener('touchmove', touchControl);
-            spawnObstacles();
-            gameInterval = setInterval(gameLoop, 1000 / 60);
-        }
+        // Manejo de Controles
+        const handleInput = (id, key) => {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+            el.addEventListener('mousedown', () => keys[key] = true);
+            el.addEventListener('mouseup', () => keys[key] = false);
+        };
+        handleInput('btn-left', 'ArrowLeft');
+        handleInput('btn-right', 'ArrowRight');
+        document.addEventListener('keydown', e => keys[e.key] = true);
+        document.addEventListener('keyup', e => keys[e.key] = false);
 
-        function touchControl(e) {
-            const touch = e.touches[0];
-            if (touch.clientX < canvas.width / 2) {
-                keys['ArrowLeft'] = true;
-                keys['ArrowRight'] = false;
-            } else {
-                keys['ArrowRight'] = true;
-                keys['ArrowLeft'] = false;
+        function spawnTraffic() {
+            if (Math.random() < 0.04) {
+                const laneX = lanes[Math.floor(Math.random() * lanes.length)];
+                const carsInLane = traffic.filter(t => t.x === laneX).length;
+
+                if (carsInLane < 2) {
+                    let canSpawn = true;
+                    traffic.forEach(t => { if (t.x === laneX && t.y < 280) canSpawn = false; });
+
+                    if (canSpawn) {
+                        traffic.push({
+                            x: laneX,
+                            y: -150,
+                            color: `hsl(${Math.random() * 360}, 50%, 45%)`,
+                            speed: 0.5 + Math.random() * 1.5
+                        });
+                    }
+                }
             }
         }
 
-        function spawnObstacles() {
-            setInterval(() => {
-                const obstacleX = Math.random() * (canvas.width - carWidth);
-                obstacles.push({ x: obstacleX, y: 0, width: carWidth, height: 20 });
-            }, 2000);
-        }
+        function drawDetailedCar(x, y, color, isPlayer) {
+            ctx.save();
+            
+            // 1. SOMBRA
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath(); ctx.roundRect(x + 4, y + 4, carW, carH, 12); ctx.fill();
+            ctx.restore();
 
-        function gameLoop() {
-            update();
-            draw();
+            // 2. RUEDAS (Neumáticos)
+            ctx.fillStyle = '#111';
+            const wheelW = 6; const wheelH = 18;
+            ctx.fillRect(x - 2, y + 12, wheelW, wheelH); // DI
+            ctx.fillRect(x + carW - 4, y + 12, wheelW, wheelH); // DD
+            ctx.fillRect(x - 2, y + 58, wheelW, wheelH); // TI
+            ctx.fillRect(x + carW - 4, y + 58, wheelW, wheelH); // TD
+
+            // 3. CARROCERÍA
+            ctx.fillStyle = color;
+            ctx.beginPath(); ctx.roundRect(x, y, carW, carH, 12); ctx.fill();
+            
+            // 4. CRISTALES Y TECHO
+            ctx.fillStyle = '#1a1a1a'; // Parabrisas
+            ctx.fillRect(x + 6, y + 20, carW - 12, 28);
+            ctx.fillRect(x + 6, y + 60, carW - 12, 12); // Trasero
+            
+            // Brillo en el cristal
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(x + 10, y + 25); ctx.lineTo(x + carW - 10, y + 45); ctx.stroke();
+
+            // 5. LUCES
+            if (isPlayer) {
+                // Luces de freno (Rojas)
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(x + 5, y + carH - 4, 12, 3);
+                ctx.fillRect(x + carW - 17, y + carH - 4, 12, 3);
+            } else {
+                // Faros enemigos (Blancos/Amarillos)
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(x + 5, y + carH - 4, 10, 3);
+                ctx.fillRect(x + carW - 15, y + carH - 4, 10, 3);
+            }
+            ctx.restore();
         }
 
         function update() {
-            if (keys['ArrowLeft'] && carX > 0) carX -= 5;
-            if (keys['ArrowRight'] && carX < canvas.width - carWidth) carX += 5;
-            obstacles.forEach(obstacle => {
-                obstacle.y += 5;
-                if (obstacle.y > canvas.height) {
-                    score++;
-                    obstacles.splice(obstacles.indexOf(obstacle), 1);
+            if (isGameOver) return;
+            speedKmh += 0.04;
+            let moveStep = speedKmh / 16;
+            worldOffset += moveStep;
+
+            if (keys['ArrowLeft']) carVelX -= 0.8;
+            if (keys['ArrowRight']) carVelX += 0.8;
+            carVelX *= 0.86;
+            carX += carVelX;
+
+            if (carX < 45) { carX = 45; carVelX = 0; }
+            if (carX > canvas.width - carW - 45) { carX = canvas.width - carW - 45; carVelX = 0; }
+
+            spawnTraffic();
+            for (let i = traffic.length - 1; i >= 0; i--) {
+                let t = traffic[i];
+                t.y += moveStep - t.speed;
+                if (t.y + carH - 12 > carY && t.x < carX + carW - 8 && t.x + carW > carX + 8 && t.y < carY + carH - 12) {
+                    isGameOver = true;
                 }
-                if (obstacle.y + obstacle.height > carY && 
-                    obstacle.x < carX + carWidth && 
-                    obstacle.x + obstacle.width > carX) {
-                    clearInterval(gameInterval);
-                    alert('Game Over! Your score: ' + score);
-                }
-            });
+                if (t.y > canvas.height) { score++; traffic.splice(i, 1); }
+            }
+            scoreEl.innerText = score;
+            speedEl.innerText = Math.floor(speedKmh) + " KM/H";
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = 'blue';
-            ctx.fillRect(carX, carY, carWidth, 100);
-            obstacles.forEach(obstacle => {
-                ctx.fillStyle = 'red';
-                ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Hierba y bordes
+            ctx.fillStyle = '#142a0f';
+            ctx.fillRect(0, 0, 45, canvas.height);
+            ctx.fillRect(canvas.width - 45, 0, 45, canvas.height);
+
+            // Asfalto
+            ctx.fillStyle = '#222';
+            ctx.fillRect(45, 0, canvas.width - 90, canvas.height);
+
+            // Líneas de carretera
+            ctx.strokeStyle = '#444';
+            ctx.setLineDash([40, 40]);
+            ctx.lineDashOffset = -worldOffset;
+            [133, 266].forEach(lx => {
+                ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, canvas.height); ctx.stroke();
             });
-            ctx.fillStyle = 'black';
-            ctx.fillText('Score: ' + score, 10, 20);
+
+            // Dibujar con detalles
+            traffic.forEach(t => drawDetailedCar(t.x, t.y, t.color, false));
+            drawDetailedCar(carX, carY, '#0066ff', true);
+
+            if (isGameOver) {
+                ctx.fillStyle = 'rgba(0,0,0,0.85)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = 'bold 30px Arial';
+                ctx.fillText("TAS MATAO", canvas.width / 2, canvas.height / 2);
+                ctx.font = '18px Arial'; ctx.fillText("Toca para reintentar", canvas.width / 2, canvas.height / 2 + 50);
+            }
         }
 
-        init();
+        canvas.addEventListener('click', () => { 
+            if (isGameOver) { carX = canvas.width / 2 - carW / 2; traffic = []; score = 0; speedKmh = 80; isGameOver = false; }
+        });
+
+        function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+        gameLoop();
     </script>
 </body>
 </html>
