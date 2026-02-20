@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Racing Game</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; overflow: hidden; }
+        canvas { background: #eee; display: block; margin: auto; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const carWidth = 50; 
+        let carX = canvas.width / 2 - carWidth / 2;
+        let carY = canvas.height - 100;
+        let obstacles = [];
+        let score = 0;
+        let gameInterval;
+        let keys = {};
+
+        // Initialize game
+        function init() {
+            document.addEventListener('keydown', (e) => keys[e.key] = true);
+            document.addEventListener('keyup', (e) => keys[e.key] = false);
+            canvas.addEventListener('touchstart', touchControl);
+            canvas.addEventListener('touchmove', touchControl);
+            spawnObstacles();
+            gameInterval = setInterval(gameLoop, 1000 / 60);
+        }
+
+        function touchControl(e) {
+            const touch = e.touches[0];
+            if (touch.clientX < canvas.width / 2) {
+                keys['ArrowLeft'] = true;
+                keys['ArrowRight'] = false;
+            } else {
+                keys['ArrowRight'] = true;
+                keys['ArrowLeft'] = false;
+            }
+        }
+
+        function spawnObstacles() {
+            setInterval(() => {
+                const obstacleX = Math.random() * (canvas.width - carWidth);
+                obstacles.push({ x: obstacleX, y: 0, width: carWidth, height: 20 });
+            }, 2000);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+        }
+
+        function update() {
+            if (keys['ArrowLeft'] && carX > 0) carX -= 5;
+            if (keys['ArrowRight'] && carX < canvas.width - carWidth) carX += 5;
+            obstacles.forEach(obstacle => {
+                obstacle.y += 5;
+                if (obstacle.y > canvas.height) {
+                    score++;
+                    obstacles.splice(obstacles.indexOf(obstacle), 1);
+                }
+                if (obstacle.y + obstacle.height > carY && 
+                    obstacle.x < carX + carWidth && 
+                    obstacle.x + obstacle.width > carX) {
+                    clearInterval(gameInterval);
+                    alert('Game Over! Your score: ' + score);
+                }
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(carX, carY, carWidth, 100);
+            obstacles.forEach(obstacle => {
+                ctx.fillStyle = 'red';
+                ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+            });
+            ctx.fillStyle = 'black';
+            ctx.fillText('Score: ' + score, 10, 20);
+        }
+
+        init();
+    </script>
+</body>
+</html>
