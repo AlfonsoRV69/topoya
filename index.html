@@ -222,6 +222,7 @@
             z-index: 5;
             filter: drop-shadow(10px 10px 20px rgba(0, 0, 0, 0.4));
             transform: scaleX(-1);
+            cursor: pointer; /* Añadido para que sepa que es clicable */
         }
 
         @keyframes driveSupra {
@@ -378,29 +379,21 @@
 </head>
 <body>
     <div class="container">
-        <!-- Cielo -->
         <div class="sky">
-            <!-- Imagen personalizada que puedes cambiar -->
             <img id="uss" class="custom-image" src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/US_flag_49_stars.svg/250px-US_flag_49_stars.svg.png" alt="Imagen personalizada">
             
-            <!-- Estrella de David -->
             <svg class="star-of-david" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                <!-- Triángulo superior -->
                 <polygon points="50,10 90,80 10,80" fill="none" stroke="#4169E1" stroke-width="3"/>
-                <!-- Triángulo inferior (invertido) -->
                 <polygon points="10,20 90,20 50,90" fill="none" stroke="#4169E1" stroke-width="3"/>
             </svg>
         </div>
 
-        <!-- Montañas -->
         <div class="mountains">
             <div class="mountain-back"></div>
             <div class="mountain-middle"></div>
         </div>
 
-        <!-- Torres en el fondo -->
         <div class="towers-container">
-            <!-- Torre 1 con antena -->
             <div class="tower" style="position: relative;">
                 <div class="antenna"></div>
                 <div class="tower-window" style="top: 15px; left: 10px;"></div>
@@ -431,7 +424,6 @@
                 <div class="tower-window" style="top: 255px; left: 35px;"></div>
             </div>
 
-            <!-- Torre 2 sin antena -->
             <div class="tower">
                 <div class="tower-window" style="top: 15px; left: 10px;"></div>
                 <div class="tower-window" style="top: 15px; left: 35px;"></div>
@@ -462,25 +454,20 @@
             </div>
         </div>
 
-        <!-- Nubes (después de las torres para que pasen sobre ellas) -->
         <div class="cloud cloud1"></div>
         <div class="cloud cloud2"></div>
         <div class="cloud cloud3"></div>
 
-        <!-- Carretera -->
         <div class="road">
             <div class="road-line"></div>
         </div>
 
-        <!-- Supra animado -->
         <div class="supra-container" id="supraCar">
             <img src="https://tmna.aemassets.toyota.com/is/image/toyota/toyota/jellies/max/2026/grsupra/3-0/2372/d13/1.png?fmt=png-alpha&wid=930&hei=328&qlt=90" alt="Toyota Supra" class="supra-image" id="image">
         </div>
 
-        <!-- Contenedor de explosión -->
         <div id="explosionContainer"></div>
 
-        <!-- Texto -->
         <div class="title">Happy Birthday Topoya</div>
         <div class="subtitle">Viva Vox</div>
     </div>
@@ -490,21 +477,20 @@
         const explosionContainer = document.getElementById('explosionContainer');
         let explosionTriggered = false;
 
-        // Monitorear la posición del Supra
+        // --- CÓDIGO DE REDIRECCIÓN AÑADIDO ---
+        supraCar.addEventListener('click', function() {
+            window.location.href = 'game.html';
+        });
+        // -------------------------------------
+
         function checkExplosion() {
             const rect = supraCar.getBoundingClientRect();
-            
-            // Cuando el Supra está cerca del final (lado derecho)
             if (rect.left > window.innerWidth - 100 && !explosionTriggered) {
                 explosionTriggered = true;
-                
-                // 50% de probabilidad de explosión
                 if (Math.random() > 0.25) {
                     createExplosion(rect.left, rect.top);
                     supraCar.style.opacity = '0';
                 }
-                
-                // Reiniciar para la siguiente vuelta
                 setTimeout(() => {
                     explosionTriggered = false;
                     supraCar.style.opacity = '1';
@@ -514,7 +500,6 @@
         }
 
         function createExplosion(x, y) {
-            // Luz central de la explosión
             const light = document.createElement('div');
             light.className = 'explosion-light';
             light.style.left = x + 'px';
@@ -522,18 +507,14 @@
             light.style.transform = 'translate(-50%, -50%)';
             explosionContainer.appendChild(light);
 
-            // Crear partículas de fuego
             for (let i = 0; i < 20; i++) {
                 const particle = document.createElement('div');
                 particle.className = 'flame';
-                
                 const size = Math.random() * 40 + 20;
                 const angle = (Math.PI * 2 * i) / 20 + (Math.random() - 0.5);
                 const velocity = Math.random() * 150 + 100;
-                
                 const tx = Math.cos(angle) * velocity;
                 const ty = Math.sin(angle) * velocity - 50;
-                
                 particle.style.left = x + 'px';
                 particle.style.top = y + 'px';
                 particle.style.width = size + 'px';
@@ -542,29 +523,17 @@
                 particle.style.setProperty('--tx', tx + 'px');
                 particle.style.setProperty('--ty', ty + 'px');
                 particle.style.transform = 'translate(-50%, -50%)';
-                
                 explosionContainer.appendChild(particle);
             }
         }
 
-        // Revisar la posición cada frame
         setInterval(checkExplosion, 50);
 
-        // Cargar la imagen del Supra
         const img = new Image();
         img.onload = function() {
             document.getElementById('image').src = img.src;
         };
         img.src = 'https://raw.githubusercontent.com/AlfonsoRV69/topoya/refs/heads/main/abascar.png';
     </script>
-
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const supraContainer = document.getElementById('supra-container');
-        supraContainer.addEventListener('click', function() {
-            window.location.href = 'game.html';
-        });
-    });
-</script>
 </body>
 </html>
