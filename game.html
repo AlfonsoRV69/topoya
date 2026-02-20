@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Racing - Ultra Details</title>
+    <title>Topoya Racing</title>
     <style>
         body { 
             font-family: 'Segoe UI', sans-serif; 
@@ -84,6 +84,12 @@
         const scoreEl = document.getElementById('val-score');
         const speedEl = document.getElementById('val-speed');
 
+        // --- CONFIGURACIÓN DE SONIDO ---
+        // Sustituye el link por tu archivo .mp3 o .wav
+        const bgMusic = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'); 
+        bgMusic.loop = true;
+        bgMusic.volume = 0.5;
+
         // Configuración Física
         const carW = 46; const carH = 88;
         let carX = canvas.width / 2 - carW / 2;
@@ -94,6 +100,7 @@
         let score = 0;
         let speedKmh = 80;
         let isGameOver = false;
+        let gameStarted = false; // Nueva bandera para el primer clic
         let keys = {};
         let worldOffset = 0;
         const lanes = [65, 175, 285];
@@ -101,15 +108,22 @@
         // Manejo de Controles
         const handleInput = (id, key) => {
             const el = document.getElementById(id);
-            el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; checkMusic(); });
             el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
-            el.addEventListener('mousedown', () => keys[key] = true);
+            el.addEventListener('mousedown', () => { keys[key] = true; checkMusic(); });
             el.addEventListener('mouseup', () => keys[key] = false);
         };
         handleInput('btn-left', 'ArrowLeft');
         handleInput('btn-right', 'ArrowRight');
-        document.addEventListener('keydown', e => keys[e.key] = true);
+        document.addEventListener('keydown', e => { keys[e.key] = true; checkMusic(); });
         document.addEventListener('keyup', e => keys[e.key] = false);
+
+        // Función para asegurar que la música suene tras la primera interacción
+        function checkMusic() {
+            if (!isGameOver && bgMusic.paused) {
+                bgMusic.play().catch(e => console.log("Esperando interacción..."));
+            }
+        }
 
         function spawnTraffic() {
             if (Math.random() < 0.04) {
@@ -134,44 +148,35 @@
 
         function drawDetailedCar(x, y, color, isPlayer) {
             ctx.save();
-            
-            // 1. SOMBRA
             ctx.shadowColor = 'rgba(0,0,0,0.5)';
             ctx.shadowBlur = 10;
             ctx.fillStyle = 'rgba(0,0,0,0.3)';
             ctx.beginPath(); ctx.roundRect(x + 4, y + 4, carW, carH, 12); ctx.fill();
             ctx.restore();
 
-            // 2. RUEDAS (Neumáticos)
             ctx.fillStyle = '#111';
             const wheelW = 6; const wheelH = 18;
-            ctx.fillRect(x - 2, y + 12, wheelW, wheelH); // DI
-            ctx.fillRect(x + carW - 4, y + 12, wheelW, wheelH); // DD
-            ctx.fillRect(x - 2, y + 58, wheelW, wheelH); // TI
-            ctx.fillRect(x + carW - 4, y + 58, wheelW, wheelH); // TD
+            ctx.fillRect(x - 2, y + 12, wheelW, wheelH);
+            ctx.fillRect(x + carW - 4, y + 12, wheelW, wheelH);
+            ctx.fillRect(x - 2, y + 58, wheelW, wheelH);
+            ctx.fillRect(x + carW - 4, y + 58, wheelW, wheelH);
 
-            // 3. CARROCERÍA
             ctx.fillStyle = color;
             ctx.beginPath(); ctx.roundRect(x, y, carW, carH, 12); ctx.fill();
             
-            // 4. CRISTALES Y TECHO
-            ctx.fillStyle = '#1a1a1a'; // Parabrisas
+            ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(x + 6, y + 20, carW - 12, 28);
-            ctx.fillRect(x + 6, y + 60, carW - 12, 12); // Trasero
+            ctx.fillRect(x + 6, y + 60, carW - 12, 12);
             
-            // Brillo en el cristal
             ctx.strokeStyle = 'rgba(255,255,255,0.15)';
             ctx.lineWidth = 2;
             ctx.beginPath(); ctx.moveTo(x + 10, y + 25); ctx.lineTo(x + carW - 10, y + 45); ctx.stroke();
 
-            // 5. LUCES
             if (isPlayer) {
-                // Luces de freno (Rojas)
                 ctx.fillStyle = '#ff0000';
                 ctx.fillRect(x + 5, y + carH - 4, 12, 3);
                 ctx.fillRect(x + carW - 17, y + carH - 4, 12, 3);
             } else {
-                // Faros enemigos (Blancos/Amarillos)
                 ctx.fillStyle = '#fff';
                 ctx.fillRect(x + 5, y + carH - 4, 10, 3);
                 ctx.fillRect(x + carW - 15, y + carH - 4, 10, 3);
@@ -199,6 +204,9 @@
                 t.y += moveStep - t.speed;
                 if (t.y + carH - 12 > carY && t.x < carX + carW - 8 && t.x + carW > carX + 8 && t.y < carY + carH - 12) {
                     isGameOver = true;
+                    // --- PARAR SONIDO AL CHOCAR ---
+                    bgMusic.pause();
+                    bgMusic.currentTime = 0; // Reiniciar al principio
                 }
                 if (t.y > canvas.height) { score++; traffic.splice(i, 1); }
             }
@@ -210,16 +218,13 @@
             ctx.fillStyle = '#111';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Hierba y bordes
             ctx.fillStyle = '#142a0f';
             ctx.fillRect(0, 0, 45, canvas.height);
             ctx.fillRect(canvas.width - 45, 0, 45, canvas.height);
 
-            // Asfalto
             ctx.fillStyle = '#222';
             ctx.fillRect(45, 0, canvas.width - 90, canvas.height);
 
-            // Líneas de carretera
             ctx.strokeStyle = '#444';
             ctx.setLineDash([40, 40]);
             ctx.lineDashOffset = -worldOffset;
@@ -227,7 +232,6 @@
                 ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, canvas.height); ctx.stroke();
             });
 
-            // Dibujar con detalles
             traffic.forEach(t => drawDetailedCar(t.x, t.y, t.color, false));
             drawDetailedCar(carX, carY, '#0066ff', true);
 
@@ -240,8 +244,21 @@
             }
         }
 
+        // --- REINICIAR Y VOLVER A PONER SONIDO ---
         canvas.addEventListener('click', () => { 
-            if (isGameOver) { carX = canvas.width / 2 - carW / 2; traffic = []; score = 0; speedKmh = 80; isGameOver = false; }
+            if (isGameOver) { 
+                carX = canvas.width / 2 - carW / 2; 
+                traffic = []; 
+                score = 0; 
+                speedKmh = 80; 
+                isGameOver = false; 
+                // Reiniciar sonido
+                bgMusic.play();
+            } else if (!gameStarted) {
+                // Para el inicio del juego
+                bgMusic.play();
+                gameStarted = true;
+            }
         });
 
         function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
