@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>The Towers</title>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+        canvas { display: block; touch-action: none; margin: 0 auto; }
+        #ui { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; display: none; z-index: 10; color: white;
+            background: rgba(0,0,0,0.85); padding: 40px; border-radius: 20px;
+            border: 2px solid #e74c3c;
+        }
+        button { 
+            padding: 15px 40px; font-size: 22px; font-weight: bold; cursor: pointer;
+            background: #e67e22; border: none; color: white; border-radius: 50px;
+            box-shadow: 0 5px #d35400; transition: 0.2s;
+        }
+        button:active { transform: translate(0, 3px); box-shadow: 0 2px #d35400; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h1 style="font-size: 45px; margin: 0; color: #ff4757;">MAYDAY!</h1>
+        <p style="font-size: 24px;">Puntuación Final: <span id="finalScore">0</span></p>
+        <button onclick="resetGame()">REINTENTAR DESPEGUE</button>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <audio id="bgMusic" loop>
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        const ui = document.getElementById("ui");
+        const finalScoreTxt = document.getElementById("finalScore");
+        const music = document.getElementById("bgMusic");
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let bird, pipes, particles, explosions, frame, score, gameOver, gameStarted, skyColor;
+
+        function resetGame() {
+            bird = { x: 80, y: canvas.height/2, w: 50, h: 25, gravity: 0.4, lift: -7, velocity: 0, angle: 0 };
+            pipes = [];
+            particles = [];
+            explosions = [];
+            frame = 0;
+            score = 0;
+            gameOver = false;
+            gameStarted = false;
+            skyColor = { r: 79, g: 172, b: 254 };
+            ui.style.display = "none";
+            music.pause();
+            music.currentTime = 0;
+            draw();
+        }
+
+        function flap() {
+            if (gameOver) return;
+            if (!gameStarted) {
+                gameStarted = true;
+                music.play().catch(() => {});
+            }
+            bird.velocity = bird.lift;
+        }
+
+        window.addEventListener("keydown", (e) => { if(e.code === "Space") flap(); });
+        canvas.addEventListener("touchstart", (e) => { e.preventDefault(); flap(); }, false);
+        canvas.addEventListener("mousedown", flap);
+
+        function createExplosion(x, y) {
+            for(let i=0; i<20; i++) {
+                explosions.push({
+                    x: x, y: y,
+                    vx: (Math.random()-0.5)*10,
+                    vy: (Math.random()-0.5)*10,
+                    r: Math.random()*5 + 2,
+                    o: 1,
+                    color: Math.random() > 0.5 ? "#ff4757" : "#ffa502"
+                });
+            }
+        }
+
+        function drawPlane(x, y, angle) {
+            ctx.save();
+            ctx.translate(x + 25, y + 12);
+            ctx.rotate(angle);
+            let bodyGrd = ctx.createLinearGradient(0, -10, 0, 10);
+            bodyGrd.addColorStop(0, "#ffffff");
+            bodyGrd.addColorStop(1, "#bdc3c7");
+            ctx.fillStyle = bodyGrd;
+            ctx.beginPath();
+            ctx.moveTo(-25, 0); 
+            ctx.quadraticCurveTo(-25, -12, 5, -12); 
+            ctx.lineTo(15, -12);
+            ctx.quadraticCurveTo(30, -12, 32, 2);   
+            ctx.quadraticCurveTo(30, 10, 5, 10);    
+            ctx.lineTo(-20, 10);
+            ctx.quadraticCurveTo(-25, 10, -25, 0);  
+            ctx.fill();
+            ctx.fillStyle = "#2c3e50";
+            ctx.beginPath();
+            ctx.moveTo(18, -10); ctx.lineTo(26, -10); ctx.quadraticCurveTo(29, -8, 28, 0); ctx.lineTo(18, 0);
+            ctx.fill();
+            ctx.fillStyle = "#ecf0f1";
+            ctx.fillRect(-5, 2, 12, 15);
+            ctx.fillStyle = "#333";
+            ctx.fillRect(-8, 12, 14, 7);
+            ctx.fillStyle = "#bdc3c7";
+            ctx.beginPath();
+            ctx.moveTo(-25, -5); ctx.lineTo(-35, -18); ctx.lineTo(-20, -18); ctx.lineTo(-15, -5);
+            ctx.fill();
+            ctx.strokeStyle = "#e74c3c";
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(-20, 3); ctx.lineTo(15, 3); ctx.stroke();
+            ctx.restore();
+        }
+
+        function draw() {
+            if (gameOver && explosions.length === 0) {
+                ui.style.display = "block";
+                finalScoreTxt.innerText = score;
+                music.pause();
+                return;
+            }
+
+            // Fondo dinámico
+            let cycle = Math.floor(score / 10) % 3;
+            if (cycle === 0) skyColor = { r: 79, g: 172, b: 254 };
+            if (cycle === 1) skyColor = { r: 255, g: 126, b: 95 };
+            if (cycle === 2) skyColor = { r: 15, g: 32, b: 39 };
+            ctx.fillStyle = `rgb(${skyColor.r}, ${skyColor.g}, ${skyColor.b})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (gameStarted && !gameOver) {
+                bird.velocity += bird.gravity;
+                bird.y += bird.velocity;
+                bird.angle = Math.min(Math.PI/6, Math.max(-Math.PI/6, bird.velocity * 0.08));
+            }
+
+            // Partículas de humo normales
+            if (gameStarted && !gameOver && frame % 2 === 0) {
+                particles.push({x: bird.x, y: bird.y + 15, r: Math.random()*4, o: 1});
+            }
+            particles.forEach((p, i) => {
+                p.x -= 4; p.o -= 0.04;
+                ctx.fillStyle = `rgba(255, 255, 255, ${p.o})`;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+                if(p.o <= 0) particles.splice(i, 1);
+            });
+
+            if (!gameOver) drawPlane(bird.x, bird.y, bird.angle);
+
+            // Explosiones al chocar
+            explosions.forEach((e, i) => {
+                e.x += e.vx; e.y += e.vy; e.o -= 0.02;
+                ctx.fillStyle = e.color;
+                ctx.globalAlpha = e.o;
+                ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill();
+                ctx.globalAlpha = 1;
+                if(e.o <= 0) explosions.splice(i, 1);
+            });
+
+            // Torres
+            if (gameStarted && frame % 85 === 0) {
+                let gap = 180;
+                let h = Math.random() * (canvas.height - gap - 150) + 75;
+                pipes.push({ x: canvas.width, y: h, gap: gap, passed: false });
+            }
+
+            pipes.forEach((p, i) => {
+                if (!gameOver) p.x -= 5;
+
+                ctx.fillStyle = "#2c3e50";
+                ctx.fillRect(p.x, 0, 75, p.y);
+                ctx.fillRect(p.x, p.y + p.gap, 75, canvas.height);
+
+                // Ventanas
+                ctx.fillStyle = "#f1c40f";
+                for (let wy = 20; wy < p.y - 20; wy += 35) {
+                    for (let wx = 12; wx <= 50; wx += 25) {
+                        if (Math.sin(wy * (p.x + i)) > -0.3) ctx.fillRect(p.x + wx, wy, 10, 15);
+                    }
+                }
+                for (let wy = p.y + p.gap + 20; wy < canvas.height - 20; wy += 35) {
+                    for (let wx = 12; wx <= 50; wx += 25) {
+                        if (Math.sin(wy * (p.x + i)) > -0.3) ctx.fillRect(p.x + wx, wy, 10, 15);
+                    }
+                }
+
+                // COLISIÓN
+                if (!gameOver && bird.x + 45 > p.x && bird.x + 5 < p.x + 75) {
+                    if (bird.y + 5 < p.y || bird.y + bird.h - 5 > p.y + p.gap) {
+                        gameOver = true;
+                        createExplosion(bird.x + 25, bird.y + 12);
+                    }
+                }
+
+                // PUNTUACIÓN (Corregida: cuenta cuando la parte trasera del avión supera el edificio)
+                if (!p.passed && p.x + 75 < bird.x) {
+                    score++;
+                    p.passed = true;
+                }
+
+                if (p.x < -80) pipes.splice(i, 1);
+            });
+
+            if (!gameOver && (bird.y > canvas.height || bird.y < -50)) {
+                gameOver = true;
+                createExplosion(bird.x + 25, bird.y);
+            }
+
+            ctx.fillStyle = "white";
+            ctx.font = "bold 45px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(score, canvas.width/2, 80);
+
+            frame++;
+            requestAnimationFrame(draw);
+        }
+
+        resetGame();
+    </script>
+</body>
+</html>
